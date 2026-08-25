@@ -226,14 +226,14 @@
   }
   .doors.gone{display:none;}
   /* manewr: wjazd i obrót nagrane w OpenArt, tło klipu w tonie strony */
+  /* źródło klipu nigdy nie jest pokazywane — służy tylko do wycinania klatek */
+  .doors-src{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;}
+  /* na stronie ląduje płótno z wyciętym tłem: sama ciężarówka, bez prostokąta */
   .doors-clip{
     position:absolute;top:0;left:50%;height:100%;width:auto;
     aspect-ratio:16 / 9;transform:translateX(-50%);
     opacity:0;transition:opacity .35s ease;
-    /* krawędzie rozmywają się w tło, więc klip nie ma widocznego prostokąta */
-    -webkit-mask-image:radial-gradient(ellipse 56% 60% at 50% 50%, #000 74%, transparent 100%);
-    mask-image:radial-gradient(ellipse 56% 60% at 50% 50%, #000 74%, transparent 100%);
-    filter:brightness(.99);
+    filter:drop-shadow(0 16px 26px rgba(16,20,22,.18));
   }
   .doors-clip.on{opacity:1;}
   /* tył naczepy: dwa skrzydła, ustawiane dokładnie na ostatniej klatce klipu */
@@ -1128,7 +1128,8 @@
    <div class="about-sticky">
     <div class="wrap about-stage">
      <div class="doors" aria-hidden="true">
-       <video class="doors-clip" muted playsinline preload="none" poster="media/klatka-start.jpg" data-src="media/manewr.mp4"></video>
+       <video class="doors-src" muted playsinline preload="none" data-src="media/manewr.mp4"></video>
+       <canvas class="doors-clip"></canvas>
        <div class="doors-box">
          <div class="door door-l"></div>
          <div class="door door-r"></div>
@@ -1575,7 +1576,8 @@
   const doors = document.querySelector('.doors');
   if (scene && photo && aboutText) {
     const lines = [...aboutText.children];
-    const clip = doors && doors.querySelector('.doors-clip');
+    const canvas = doors && doors.querySelector('.doors-clip');
+    const clip = doors && doors.querySelector('.doors-src');
     const box = doors && doors.querySelector('.doors-box');
     const doorL = doors && doors.querySelector('.door-l');
     const doorR = doors && doors.querySelector('.door-r');
@@ -1629,7 +1631,8 @@
       photo.style.opacity = 1; photo.style.transform = 'none';
       lines.forEach(el => { el.style.opacity = 1; el.style.transform = 'none'; });
       if (doors) doors.classList.add('gone');
-      if (clip) { clip.pause(); clip.classList.remove('on'); }
+      if (clip) clip.pause();
+      if (canvas) canvas.classList.remove('on');
       aboutDone = true; aboutRunning = false;
     };
 
@@ -1650,6 +1653,63 @@
       aboutStep(aboutFrame);
     };
 
+
+    // Wycinanie tła klatka po klatce. Próg globalny zjadłby biały napis i chrom
+    // na ciężarówce, więc idziemy od krawędzi w głąb — do środka pojazdu fala
+    // nie dociera, bo blokuje ją czerwień kontenera.
+    const KEY_W = 560;
+    let keyBuf = null, keyVisited = null, keyStack = null;
+    const keyFrames = () => {
+      if (!clip || !canvas) return;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      const ratio = (clip.videoHeight || 9) / (clip.videoWidth || 16);
+      canvas.width = KEY_W;
+      canvas.height = Math.round(KEY_W * ratio);
+      const w = canvas.width, h = canvas.height, n = w * h;
+      keyVisited = new Uint8Array(n);
+      keyStack = new Int32Array(n);
+
+      const jasneTlo = (d, i) => {
+        const r = d[i], g = d[i + 1], b = d[i + 2];
+        const max = r > g ? (r > b ? r : b) : (g > b ? g : b);
+        const min = r < g ? (r < b ? r : b) : (g < b ? g : b);
+        return max - min < 34 && min > 168;
+      };
+
+      let lastKey = 0;
+      const draw = ts => {
+        if (clip.paused || clip.ended || handedOver) return;
+        // klip ma 30 klatek na sekundę — nie ma po co liczyć częściej
+        if (ts - lastKey < 32) { requestAnimationFrame(draw); return; }
+        lastKey = ts;
+        ctx.drawImage(clip, 0, 0, w, h);
+        const frame = ctx.getImageData(0, 0, w, h);
+        const d = frame.data;
+        keyVisited.fill(0);
+        let top = 0;
+        const push = px => {
+          if (keyVisited[px]) return;
+          if (!jasneTlo(d, px * 4)) return;
+          keyVisited[px] = 1;
+          keyStack[top++] = px;
+        };
+        for (let x = 0; x < w; x++) { push(x); push((h - 1) * w + x); }
+        for (let y = 0; y < h; y++) { push(y * w); push(y * w + w - 1); }
+        while (top > 0) {
+          const px = keyStack[--top];
+          const x = px % w, y = (px / w) | 0;
+          if (x > 0) push(px - 1);
+          if (x < w - 1) push(px + 1);
+          if (y > 0) push(px - w);
+          if (y < h - 1) push(px + w);
+        }
+        for (let px = 0; px < n; px++) if (keyVisited[px]) d[px * 4 + 3] = 0;
+        ctx.putImageData(frame, 0, 0);
+        requestAnimationFrame(draw);
+      };
+      requestAnimationFrame(draw);
+    };
+
     // po manewrze klip gaśnie, a jego ostatnią klatkę przejmują skrzydła
     let handedOver = false;
     const openDoors = () => {
@@ -1657,7 +1717,7 @@
       handedOver = true;
       placeBox();
       layout(0);
-      if (clip) clip.classList.remove('on');
+      if (canvas) canvas.classList.remove('on');
       aboutRunning = true; aboutStart = null;
       aboutStep(aboutFrame);
     };
@@ -1679,10 +1739,12 @@
       const aboutIO = new IntersectionObserver(entries => {
         entries.forEach(entry => {
           if (!entry.isIntersecting || aboutRunning || aboutDone || handedOver) return;
-          if (!clip) { openDoors(); return; }
+          if (!clip || !canvas) { openDoors(); return; }
           clip.src = clip.dataset.src;
-          clip.classList.add('on');
-          clip.play().catch(() => openDoors());   // blokada autoodtwarzania — idziemy dalej bez klipu
+          clip.play().then(() => {
+            canvas.classList.add('on');
+            keyFrames();
+          }).catch(() => openDoors());            // blokada autoodtwarzania — idziemy dalej bez klipu
           clip.addEventListener('ended', openDoors, { once: true });
           // gdyby zdarzenie nie doszło, i tak przejmujemy po długości klipu
           setTimeout(openDoors, 6200);
