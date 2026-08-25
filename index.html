@@ -1128,7 +1128,7 @@
    <div class="about-sticky">
     <div class="wrap about-stage">
      <div class="doors" aria-hidden="true">
-       <video class="doors-src" muted playsinline preload="none" data-src="media/manewr-v4.mp4"></video>
+       <video class="doors-src" muted playsinline preload="none" data-src="media/manewr-bialy.mp4"></video>
        <canvas class="doors-clip"></canvas>
        <div class="doors-box">
          <div class="door door-l"></div>
@@ -1583,7 +1583,7 @@
     const doorR = doors && doors.querySelector('.door-r');
 
     // gdzie w kadrze klipu stoi kontener na ostatniej klatce (zmierzone z pliku)
-    const FRAME = { x0: .2365, x1: .7615, y0: .1648, y1: .7425, ratio: 16 / 9 };
+    const FRAME = { x0: .2375, x1: .7615, y0: .1648, y1: .7426, ratio: 16 / 9 };
 
     const clamp = x => Math.min(1, Math.max(0, x));
     const easeOut = x => 1 - Math.pow(1 - x, 3);
