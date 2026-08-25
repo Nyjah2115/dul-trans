@@ -744,12 +744,24 @@
     background:#0f1214;
   }
   /* right half: the photo, edge to edge */
-  .contact-photo{margin:0;position:relative;overflow:hidden;}
-  .contact-photo img{
-    position:absolute;inset:0;width:100%;height:100%;
-    object-fit:cover;object-position:center 45%;
-    filter:saturate(1.05) contrast(1.04);
+  .contact-map{margin:0;position:relative;overflow:hidden;min-height:420px;background:#1a1f22;}
+  .contact-map iframe{
+    position:absolute;inset:0;width:100%;height:100%;border:0;display:block;
+    /* mapa dopasowana do ciemnej strony kontaktu */
+    filter:grayscale(.35) contrast(1.05) brightness(.94);
   }
+  .map-link{
+    position:absolute;left:20px;bottom:20px;z-index:2;
+    display:inline-flex;align-items:center;gap:9px;
+    font-family:'Oswald',sans-serif;text-transform:uppercase;
+    font-size:11.5px;letter-spacing:2.5px;color:var(--paper);
+    background:rgba(15,18,20,.86);border:1px solid rgba(255,255,255,.18);
+    padding:11px 16px;border-radius:9px;backdrop-filter:blur(4px);
+    transition:background .25s ease, border-color .25s ease;
+  }
+  .map-link:hover{background:var(--amber-500);border-color:var(--amber-500);}
+  .map-link svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+
   .contact-title{
     font-size:clamp(28px,3.4vw,42px);font-weight:300;letter-spacing:3px;
     color:var(--paper);margin-bottom:48px;
@@ -828,7 +840,7 @@
     .reviews-grid{grid-template-columns:1fr;}
     .contact-inner{grid-template-columns:1fr;min-height:0;}
     .contact-copy{padding:80px 28px;}
-    .contact-photo{height:340px;order:-1;}
+    .contact-map{min-height:0;height:340px;order:-1;}
     .c-rows{grid-template-columns:1fr;gap:28px;}
   }
   /* ===== FORMULARZ KONTAKTOWY ===== */
@@ -911,22 +923,9 @@
     .op-pager{margin-top:16px;}
 
     .contact-copy{padding:56px 20px;}
-    /* on a phone the photo becomes the backdrop and the details sit on top of it */
-    .contact-inner{position:relative;}
-    .contact-photo{
-      position:absolute;inset:0;height:100%;width:100%;
-      aspect-ratio:auto;order:0;z-index:0;
-    }
-    .contact-photo img{object-position:center 40%;}
-    /* dark scrim so the type stays readable over the truck */
-    .contact-photo::after{
-      content:"";position:absolute;inset:0;
-      background:linear-gradient(180deg, rgba(15,18,20,.9) 0%, rgba(15,18,20,.78) 40%, rgba(15,18,20,.86) 100%);
-    }
-    .contact-copy{
-      position:relative;z-index:1;background:transparent;
-      padding:72px 20px 76px;
-    }
+    /* mapy nie da się schować pod tekst, więc na telefonie jest osobnym pasem */
+    .contact-map{height:280px;}
+    .map-link{left:14px;bottom:14px;font-size:11px;padding:10px 14px;}
     footer{padding:30px 0;}
   }
 </style>
@@ -1213,8 +1212,16 @@
       <p class="c-form-note">Wiadomość otworzy się w Twoim programie pocztowym — wystarczy ją wysłać.</p>
     </form>
     </div>
-    <figure class="contact-photo">
-      <img src="media/7a277b3c.jpg" alt="Scania R-series firmy DUL-TRANS na placu" loading="lazy" decoding="async">
+    <figure class="contact-map">
+      <iframe
+        title="Mapa dojazdu do siedziby DUL-TRANS w Grębowie"
+        src="https://maps.google.com/maps?q=ul.%20Dola%C5%84skich%2095%2C%2039-410%20Gr%C4%99b%C3%B3w&z=15&hl=pl&output=embed"
+        loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+      <a class="map-link" href="https://www.google.com/maps/search/?api=1&query=ul.+Dola%C5%84skich+95%2C+39-410+Gr%C4%99b%C3%B3w"
+         target="_blank" rel="noopener">
+        <span>Otwórz w Mapach Google</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>
+      </a>
     </figure>
   </div>
 </section>
