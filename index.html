@@ -1234,6 +1234,13 @@
 </footer>
 
 <script>
+  // ?debug w adresie włącza panel diagnostyczny — zbieramy błędy od pierwszej chwili
+  window.__diagErrors = [];
+  window.addEventListener('error', e => {
+    window.__diagErrors.push((e.message || 'błąd') + ' @ ' + (e.filename || '').split('/').pop() + ':' + (e.lineno || '?'));
+  });
+</script>
+<script>
   const supportsIO = 'IntersectionObserver' in window;
   const io = supportsIO ? new IntersectionObserver((entries) => {
     entries.forEach(entry => {
@@ -1780,6 +1787,54 @@
     });
   }
 
+
+  // ===== PANEL DIAGNOSTYCZNY (?debug w adresie) =====
+  if (/[?&]debug\b/.test(location.search)) {
+    const box = document.createElement('div');
+    box.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:9999;max-width:min(92vw,420px);'
+      + 'background:#0f1214;color:#e8eef0;font:13px/1.55 ui-monospace,Menlo,Consolas,monospace;'
+      + 'padding:14px 16px;border-radius:10px;border:1px solid rgba(255,255,255,.18);'
+      + 'box-shadow:0 18px 40px rgba(0,0,0,.5);white-space:pre-wrap;';
+    const net = navigator.connection || {};
+    const yn = v => v ? 'TAK' : 'NIE';
+    const draw = () => {
+      const stan = sel => {
+        const el = document.querySelector(sel);
+        if (!el) return 'brak elementu';
+        return el.classList.contains('done') ? 'przejechała' : 'czeka lub w trakcie';
+      };
+      const widoczne = document.querySelectorAll('.fade-up.in-view').length;
+      box.textContent = [
+        'DIAGNOSTYKA ANIMACJI',
+        '',
+        'szerokość okna: ' + window.innerWidth + ' px',
+        'próg 760 px spełniony: ' + yn(matchMedia('(min-width: 761px)').matches),
+        'próg 900 px spełniony: ' + yn(matchMedia('(min-width: 901px)').matches),
+        'ograniczanie ruchu w systemie: ' + yn(matchMedia('(prefers-reduced-motion: reduce)').matches),
+        'oszczędzanie danych: ' + yn(net.saveData) + '   typ sieci: ' + (net.effectiveType || 'nieznany'),
+        'IntersectionObserver: ' + yn('IntersectionObserver' in window),
+        '',
+        'odsłonięte bloki (fade-up): ' + widoczne + ' z ' + document.querySelectorAll('.fade-up').length,
+        'film w hero: ' + (() => {
+          const v = document.querySelector('.hero-vid');
+          if (!v || !v.getAttribute('src')) return 'sam plakat (nie wczytany)';
+          return v.paused ? 'wczytany, ale ZATRZYMANY (blokada autoodtwarzania?)' : 'gra';
+        })(),
+        'napis "Co robimy": ' + (document.querySelectorAll('.scene-title .char').length ? 'rozbity na litery' : 'nierozbity'),
+        'scena opinii: ' + stan('.op-stage'),
+        '',
+        'błędy JavaScriptu: ' + (window.__diagErrors.length ? '\n  · ' + window.__diagErrors.join('\n  · ') : 'brak'),
+        '',
+        'przeglądarka: ' + navigator.userAgent.slice(0, 110)
+      ].join('\n');
+    };
+    draw();
+    setInterval(draw, 1000);
+    box.title = 'Kliknij, żeby ukryć';
+    box.addEventListener('click', () => box.remove());
+    document.body.appendChild(box);
+  }
+
   // hero videos cross-fade into one another
   const clips = [...document.querySelectorAll('.hero-vid')];
   // ~4,7 MB filmu nie ma po co ściągać na komórce ani przy oszczędzaniu danych —
@@ -1807,7 +1862,17 @@
       setTimeout(() => { if (prev !== clips[current]) prev.pause(); }, FADE * 1000);
     };
     clips[0].classList.add('is-on');
-    clips[0].play().catch(() => {});
+    // Opera i część przeglądarek blokują autoodtwarzanie — wtedy ruszamy przy pierwszym geście
+    const playFirst = () => clips[0].play();
+    playFirst().catch(() => {
+      const kick = () => {
+        playFirst().catch(() => {});
+        ['pointerdown', 'keydown', 'scroll', 'touchstart'].forEach(ev =>
+          window.removeEventListener(ev, kick));
+      };
+      ['pointerdown', 'keydown', 'scroll', 'touchstart'].forEach(ev =>
+        window.addEventListener(ev, kick, { passive: true }));
+    });
     clips.forEach((clip, i) => {
       clip.addEventListener('timeupdate', () => {
         if (i !== current || !clip.duration) return;
