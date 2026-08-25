@@ -1804,8 +1804,20 @@
         return el.classList.contains('done') ? 'przejechała' : 'czeka lub w trakcie';
       };
       const widoczne = document.querySelectorAll('.fade-up.in-view').length;
+      const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const waski = !matchMedia('(min-width: 761px)').matches;
+      const bledy = window.__diagErrors.length > 0;
+      const odslon = document.querySelectorAll('.fade-up.in-view').length;
+      const werdykt =
+        bledy   ? 'WERDYKT: JavaScript się wywalił — patrz błędy niżej.'
+      : reduce  ? 'WERDYKT: system ma włączone ograniczanie animacji. Strona celowo ich nie odtwarza. Windows: Ustawienia > Ułatwienia dostępu > Efekty wizualne > Efekty animacji.'
+      : waski   ? 'WERDYKT: okno węższe niż 760 px — duże animacje są wyłączone z założenia.'
+      : odslon === 0 ? 'WERDYKT: nic się jeszcze nie odsłoniło. Przewiń stronę i sprawdź ponownie.'
+      :           'WERDYKT: animacje są włączone i działają.';
       box.textContent = [
         'DIAGNOSTYKA ANIMACJI',
+        '',
+        werdykt,
         '',
         'szerokość okna: ' + window.innerWidth + ' px',
         'próg 760 px spełniony: ' + yn(matchMedia('(min-width: 761px)').matches),
