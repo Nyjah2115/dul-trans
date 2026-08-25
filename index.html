@@ -217,49 +217,6 @@
   }
   .nav-cta:hover{background:var(--ink-900);color:var(--paper);}
 
-  /* ===== "O FIRMIE": naczepa podjeżdża i otwiera się na treść ===== */
-  .about-stage{position:relative;}
-  .about-stage .about-grid{width:100%;}
-  .doors{
-    position:absolute;inset:-18px -10px;z-index:3;pointer-events:none;
-    perspective:1600px;perspective-origin:50% 45%;
-  }
-  .doors.gone{display:none;}
-  /* manewr: wjazd i obrót nagrane w OpenArt, tło klipu w tonie strony */
-  /* źródło klipu nigdy nie jest pokazywane — służy tylko do wycinania klatek */
-  .doors-src{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;}
-  /* na stronie ląduje płótno z wyciętym tłem: sama ciężarówka, bez prostokąta */
-  .doors-clip{
-    position:absolute;top:0;left:50%;height:100%;width:auto;
-    aspect-ratio:16 / 9;transform:translateX(-50%);
-    opacity:0;transition:opacity .35s ease;
-    filter:drop-shadow(0 16px 26px rgba(16,20,22,.18));
-  }
-  .doors-clip.on{opacity:1;}
-  /* tył naczepy: dwa skrzydła, ustawiane dokładnie na ostatniej klatce klipu */
-  .doors-box{
-    position:absolute;top:0;bottom:0;left:50%;
-    aspect-ratio:1100 / 853;transform-style:preserve-3d;
-    opacity:0;will-change:transform,opacity;
-  }
-  .door{
-    position:absolute;top:0;bottom:0;width:50%;
-    background-image:url("media/naczepa-biala.jpg");
-    background-size:200% 100%;
-    background-repeat:no-repeat;
-    box-shadow:0 26px 60px rgba(16,20,22,.34);
-    will-change:transform;backface-visibility:hidden;
-  }
-  .door-l{left:0;background-position:left center;transform-origin:left center;border-radius:18px 0 0 18px;}
-  .door-r{right:0;background-position:right center;transform-origin:right center;border-radius:0 18px 18px 0;}
-  /* treść czeka w środku, aż skrzydła się rozejdą */
-  .about-stage .about-photo,
-  .about-stage .about-text > *{will-change:transform,opacity;}
-
-  @media (max-width:760px){
-    .doors{display:none;}
-  }
-
   /* ===== "CO ROBIMY" SCENE: heading first, then the tiles land ===== */
   #uslugi{padding:0;}
   .uslugi-scene{position:relative;}
@@ -1126,16 +1083,7 @@
 <section class="about" id="onas">
   <div class="about-scene">
    <div class="about-sticky">
-    <div class="wrap about-stage">
-     <div class="doors" aria-hidden="true">
-       <video class="doors-src" muted playsinline preload="none" data-src="media/manewr-bialy.mp4"></video>
-       <canvas class="doors-clip"></canvas>
-       <div class="doors-box">
-         <div class="door door-l"></div>
-         <div class="door door-r"></div>
-       </div>
-     </div>
-     <div class="about-grid">
+    <div class="wrap about-grid">
     <figure class="about-photo">
       <img src="media/b9fa4442.jpg" alt="Zespół DUL-TRANS przy ciężarówkach Scania w barwach firmy" loading="lazy" decoding="async">
     </figure>
@@ -1146,7 +1094,6 @@
       <p>Stawiamy na uczciwe warunki, sprawną komunikację i dobrze utrzymaną flotę — dlatego klienci wracają do nas od pokoleń.</p>
       <div class="signature-line">Sławomir Dul <b>— właściciel DUL-TRANS</b></div>
     </div>
-     </div>
     </div>
    </div>
   </div>
@@ -1569,202 +1516,68 @@
     io.observe(el);
   };
 
-  // "o firmie": klip z OpenArt robi wjazd i obrót, potem drzwi otwierają się na treść
+  // "o firmie": photo starts centred, slides to its column while the text cascades in
   const scene = document.querySelector('.about-scene');
   const photo = document.querySelector('.about-photo');
   const aboutText = document.querySelector('.about-text');
-  const doors = document.querySelector('.doors');
   if (scene && photo && aboutText) {
     const lines = [...aboutText.children];
-    const canvas = doors && doors.querySelector('.doors-clip');
-    const clip = doors && doors.querySelector('.doors-src');
-    const box = doors && doors.querySelector('.doors-box');
-    const doorL = doors && doors.querySelector('.door-l');
-    const doorR = doors && doors.querySelector('.door-r');
-
-    // gdzie w kadrze klipu stoi kontener na ostatniej klatce (zmierzone z pliku)
-    const FRAME = { x0: .2375, x1: .7615, y0: .1648, y1: .7426, ratio: 16 / 9 };
-
     const clamp = x => Math.min(1, Math.max(0, x));
-    const easeOut = x => 1 - Math.pow(1 - x, 3);
-    const easeInOut = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
-    const easeSoft = x => x * x * (3 - 2 * x);
+    const easeOut = x => 1 - Math.pow(1 - x, 3);          // leaves quickly, settles softly
+    const easeSoft = x => x * x * (3 - 2 * x);            // gentle in and out
+    let shift = 0, active = false, aboutDone = false, aboutRunning = false, aboutStart = null;
 
-    let active = false, aboutDone = false, aboutRunning = false, aboutStart = null;
-
-    // skrzydła siadają tam, gdzie klip zostawił naczepę
-    const placeBox = () => {
-      if (!box || !doors) return;
-      const w = doors.clientWidth, h = doors.clientHeight;
-      const vw = Math.min(w, h * FRAME.ratio);           // object-fit: contain
-      const vh = vw / FRAME.ratio;
-      const ox = (w - vw) / 2, oy = (h - vh) / 2;
-      box.style.left = (ox + vw * FRAME.x0) + 'px';
-      box.style.top = (oy + vh * FRAME.y0) + 'px';
-      box.style.width = (vw * (FRAME.x1 - FRAME.x0)) + 'px';
-      box.style.height = (vh * (FRAME.y1 - FRAME.y0)) + 'px';
-    };
-
-    // druga część: rozchylenie skrzydeł i odsłonięcie treści (p liczone od 0 do 1)
     const layout = p => {
-      if (box) {
-        const fadeIn = easeOut(clamp(p / .12));
-        const fadeOut = easeOut(clamp((p - .62) / .3));
-        box.style.opacity = fadeIn * (1 - fadeOut);
-      }
-      if (doorL && doorR) {
-        const open = easeInOut(clamp((p - .1) / .45));
-        doorL.style.transform = `rotateY(${-112 * open}deg)`;
-        doorR.style.transform = `rotateY(${112 * open}deg)`;
-      }
-      const reveal = easeOut(clamp((p - .32) / .34));
-      photo.style.opacity = reveal;
-      photo.style.transform = `scale(${.92 + .08 * reveal}) translateY(${14 * (1 - reveal)}px)`;
+      const move = easeOut(p);
+      const rest = 1 - move;
+      // it swings out of the centre: a touch of rotation and scale that unwind as it lands
+      photo.style.transform =
+        `translateX(${shift * rest}px) translateY(${-10 * Math.sin(Math.PI * move)}px)` +
+        ` rotate(${-1.6 * rest}deg) scale(${1 + .06 * rest})`;
+
       lines.forEach((el, i) => {
-        const lp = easeSoft(clamp((p - (.4 + i * .06)) / .3));
+        const lp = easeSoft(clamp((p - (.30 + i * .08)) / .38));
         el.style.opacity = lp;
-        el.style.transform = `translateY(${16 * (1 - lp)}px)`;
+        el.style.transform = `translateY(${18 * (1 - lp)}px)`;
       });
     };
-
-    const settle = () => {
-      photo.style.opacity = 1; photo.style.transform = 'none';
+    const aboutSettle = () => {
+      photo.style.transform = 'none';
       lines.forEach(el => { el.style.opacity = 1; el.style.transform = 'none'; });
-      if (doors) doors.classList.add('gone');
-      if (clip) clip.pause();
-      if (canvas) canvas.classList.remove('on');
       aboutDone = true; aboutRunning = false;
     };
 
-    const clear = () => {
-      photo.style.opacity = ''; photo.style.transform = '';
-      lines.forEach(el => { el.style.opacity = ''; el.style.transform = ''; });
-      if (doors) doors.classList.add('gone');
+    // measured with the transform cleared, so the shift never feeds back into itself
+    const measure = () => {
+      active = window.matchMedia('(min-width: 761px)').matches;
+      if (!active) {
+        photo.style.transform = '';
+        lines.forEach(el => { el.style.transform = ''; el.style.opacity = ''; });
+        return;
+      }
+      if (aboutRunning || aboutDone) return;
+      photo.style.transform = 'none';
+      const grid = photo.parentElement;
+      const gridRect = grid.getBoundingClientRect();
+      const photoRect = photo.getBoundingClientRect();
+      shift = (gridRect.left + gridRect.width / 2) - (photoRect.left + photoRect.width / 2);
+      layout(0);
     };
 
-    const DOORS_RUN = 2600;
-    const aboutStep = fn => document.hidden ? setTimeout(() => fn(performance.now()), 16) : requestAnimationFrame(fn);
+    const ABOUT_RUN = 1900;
     const aboutFrame = ts => {
       if (!aboutRunning) return;
       if (aboutStart === null) aboutStart = ts;
-      const p = clamp((ts - aboutStart) / DOORS_RUN);
+      const p = clamp((ts - aboutStart) / ABOUT_RUN);
       layout(p);
-      if (p >= 1) { settle(); return; }
-      aboutStep(aboutFrame);
-    };
-
-
-    // Wycinanie tła klatka po klatce. Maskę liczymy w małej rozdzielczości, bo
-    // wypełnianie od krawędzi jest kosztowne, ale sam obraz rysujemy w pełnej —
-    // inaczej klip byłby rozmyty. Fala idzie od krawędzi w głąb, więc biały
-    // napis i chrom zostają: zatrzymuje ją czerwień kontenera.
-    const MASK_W = 480;
-    const keyFrames = () => {
-      if (!clip || !canvas) return;
-      const vw = clip.videoWidth || 1280, vh = clip.videoHeight || 720;
-      canvas.width = vw;
-      canvas.height = vh;
-      const ctx = canvas.getContext('2d');
-
-      const mw = MASK_W, mh = Math.round(MASK_W * vh / vw), n = mw * mh;
-      const maskCanvas = document.createElement('canvas');
-      maskCanvas.width = mw; maskCanvas.height = mh;
-      const mctx = maskCanvas.getContext('2d', { willReadFrequently: true });
-      const visited = new Uint8Array(n), stack = new Int32Array(n);
-
-      const draw = ts => {
-        if (clip.paused || clip.ended || handedOver) return;
-        if (ts - lastKey < 32) { requestAnimationFrame(draw); return; }   // klip ma 30 kl./s
-        lastKey = ts;
-
-        // 1. maska: co jest tłem, a co pojazdem
-        mctx.drawImage(clip, 0, 0, mw, mh);
-        const frame = mctx.getImageData(0, 0, mw, mh);
-        const d = frame.data;
-        visited.fill(0);
-        let top = 0;
-        const push = px => {
-          if (visited[px]) return;
-          const i = px * 4, r = d[i], g = d[i + 1], b = d[i + 2];
-          const max = r > g ? (r > b ? r : b) : (g > b ? g : b);
-          const min = r < g ? (r < b ? r : b) : (g < b ? g : b);
-          if (max - min > 34 || min < 168) return;
-          visited[px] = 1;
-          stack[top++] = px;
-        };
-        for (let x = 0; x < mw; x++) { push(x); push((mh - 1) * mw + x); }
-        for (let y = 0; y < mh; y++) { push(y * mw); push(y * mw + mw - 1); }
-        while (top > 0) {
-          const px = stack[--top];
-          const x = px % mw, y = (px / mw) | 0;
-          if (x > 0) push(px - 1);
-          if (x < mw - 1) push(px + 1);
-          if (y > 0) push(px - mw);
-          if (y < mh - 1) push(px + mw);
-        }
-        for (let px = 0; px < n; px++) {
-          const i = px * 4;
-          d[i] = d[i + 1] = d[i + 2] = 0;
-          d[i + 3] = visited[px] ? 0 : 255;
-        }
-        mctx.putImageData(frame, 0, 0);
-
-        // 2. pełna klatka przycięta tą maską — maska rozciąga się płynnie,
-        //    więc krawędzie pojazdu wychodzą miękkie zamiast schodkowych
-        ctx.clearRect(0, 0, vw, vh);
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.drawImage(clip, 0, 0, vw, vh);
-        ctx.globalCompositeOperation = 'destination-in';
-        ctx.drawImage(maskCanvas, 0, 0, vw, vh);
-        ctx.globalCompositeOperation = 'source-over';
-
-        requestAnimationFrame(draw);
-      };
-      requestAnimationFrame(draw);
-    };
-    let lastKey = 0;
-
-    // po manewrze klip gaśnie, a jego ostatnią klatkę przejmują skrzydła
-    let handedOver = false;
-    const openDoors = () => {
-      if (handedOver || aboutDone) return;
-      handedOver = true;
-      placeBox();
-      layout(0);
-      if (canvas) canvas.classList.remove('on');
-      aboutRunning = true; aboutStart = null;
-      aboutStep(aboutFrame);
-    };
-
-    const measure = () => {
-      active = window.matchMedia('(min-width: 761px)').matches;
-      if (!active) { clear(); return; }
-      if (aboutRunning || aboutDone) { placeBox(); return; }
-      if (doors) doors.classList.remove('gone');
-      placeBox();
-      layout(0);
-      if (box) box.style.opacity = 0;
+      if (p >= 1) { aboutSettle(); return; }
+      timeStep(aboutFrame);
     };
 
     measureTasks.push(measure);
     measure();
-
     if (active) {
-      const aboutIO = new IntersectionObserver(entries => {
-        entries.forEach(entry => {
-          if (!entry.isIntersecting || aboutRunning || aboutDone || handedOver) return;
-          if (!clip || !canvas) { openDoors(); return; }
-          clip.src = clip.dataset.src;
-          clip.play().then(() => {
-            canvas.classList.add('on');
-            keyFrames();
-          }).catch(() => openDoors());            // blokada autoodtwarzania — idziemy dalej bez klipu
-          clip.addEventListener('ended', openDoors, { once: true });
-          // gdyby zdarzenie nie doszło, i tak przejmujemy po długości klipu
-          setTimeout(openDoors, 6200);
-        });
-      }, { threshold: .45 });
-      aboutIO.observe(scene);
+      runOnce(scene, () => { aboutRunning = true; aboutStart = null; timeStep(aboutFrame); }, .28);
     }
   }
 
