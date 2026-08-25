@@ -153,10 +153,6 @@
     100%{transform:translate(-46px,-7px) scale(2.1);opacity:0;}
   }
 
-  @media (prefers-reduced-motion:reduce){
-    .road-vehicle{display:none;}
-    .page-aurora{animation:none;}
-  }
 
   /* ===== HEADER ===== */
   header{
@@ -1298,8 +1294,7 @@
     const opRoad = opStage.querySelector('.op-road');
     const opCards = [...opStage.querySelectorAll('.op-card')];
     const opCount = opPager.querySelector('.count');
-    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const wideOp = () => matchMedia('(min-width: 761px)').matches && !reduce;
+    const wideOp = () => matchMedia('(min-width: 761px)').matches;
 
     const REVIEWS = [
       ['„Bardzo dobra obsługa klienta i bezproblemowy kontakt."', 'Klient DUL-TRANS'],
@@ -1533,8 +1528,7 @@
 
     // measured with the transform cleared, so the shift never feeds back into itself
     const measure = () => {
-      active = window.matchMedia('(min-width: 761px)').matches &&
-               !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      active = window.matchMedia('(min-width: 761px)').matches;
       if (!active) {
         photo.style.transform = '';
         lines.forEach(el => { el.style.transform = ''; el.style.opacity = ''; });
@@ -1572,8 +1566,7 @@
   const uBody = document.querySelector('.uslugi-body');
   const uTiles = [...document.querySelectorAll('.acc-item')];
   if (uScene && uTitle && uBody && uTiles.length) {
-    const wide = () => window.matchMedia('(min-width: 761px)').matches &&
-                       !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const wide = () => window.matchMedia('(min-width: 761px)').matches;
     const clampU = x => Math.min(1, Math.max(0, x));
     const easeOutU = x => 1 - Math.pow(1 - x, 3);
     const easeInU = x => x * x;
@@ -1651,7 +1644,7 @@
 
   // characters fly in from the sides as the block scrolls into view
   const spreadEl = document.querySelector('.stat-num');
-  if (spreadEl && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  if (spreadEl) {
     const text = spreadEl.textContent.trim();
     spreadEl.textContent = '';
     const chars = [...text].map(ch => {
@@ -1810,7 +1803,6 @@
       const odslon = document.querySelectorAll('.fade-up.in-view').length;
       const werdykt =
         bledy   ? 'WERDYKT: JavaScript się wywalił — patrz błędy niżej.'
-      : reduce  ? 'WERDYKT: system ma włączone ograniczanie animacji. Strona celowo ich nie odtwarza. Windows: Ustawienia > Ułatwienia dostępu > Efekty wizualne > Efekty animacji.'
       : waski   ? 'WERDYKT: okno węższe niż 760 px — duże animacje są wyłączone z założenia.'
       : odslon === 0 ? 'WERDYKT: nic się jeszcze nie odsłoniło. Przewiń stronę i sprawdź ponownie.'
       :           'WERDYKT: animacje są włączone i działają.';
@@ -1822,7 +1814,7 @@
         'szerokość okna: ' + window.innerWidth + ' px',
         'próg 760 px spełniony: ' + yn(matchMedia('(min-width: 761px)').matches),
         'próg 900 px spełniony: ' + yn(matchMedia('(min-width: 901px)').matches),
-        'ograniczanie ruchu w systemie: ' + yn(matchMedia('(prefers-reduced-motion: reduce)').matches),
+        'ograniczanie ruchu w systemie: ' + yn(reduce) + ' (nie blokuje już animacji)',
         'oszczędzanie danych: ' + yn(net.saveData) + '   typ sieci: ' + (net.effectiveType || 'nieznany'),
         'IntersectionObserver: ' + yn('IntersectionObserver' in window),
         '',
@@ -1852,7 +1844,6 @@
   // ~4,7 MB filmu nie ma po co ściągać na komórce ani przy oszczędzaniu danych —
   // wtedy zostaje sam plakat, czyli pierwsza klatka
   const wantsVideo = () => {
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
     if (!matchMedia('(min-width: 901px)').matches) return false;
     const net = navigator.connection;
     if (net && (net.saveData || /^(slow-)?2g$/.test(net.effectiveType || ''))) return false;
@@ -1929,7 +1920,7 @@
   }
 
   const strips = [...document.querySelectorAll('.road-strip')];
-  if (strips.length && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  if (strips.length) {
     // sizes only change on resize, so they are measured once instead of every frame
     const rigs = strips.map(strip => ({
       strip,
