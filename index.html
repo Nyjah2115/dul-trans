@@ -225,33 +225,13 @@
     perspective:1600px;perspective-origin:50% 45%;
   }
   .doors.gone{display:none;}
-  /* bok naczepy w drodze na miejsce — ta sama sylwetka co na pasku pod hero */
-  /* ten sam zestaw, który za chwilę stanie do nas tyłem */
-  .doors-rig{
-    position:absolute;left:0;bottom:6%;width:330px;height:77px;
-    will-change:transform,opacity;
+  /* manewr: wjazd i obrót nagrane w OpenArt, tło klipu w tonie strony */
+  .doors-clip{
+    position:absolute;inset:0;width:100%;height:100%;
+    object-fit:contain;opacity:0;transition:opacity .35s ease;
   }
-  .doors-truck{
-    position:absolute;inset:0;
-    background:url("media/zestaw-bok.png") center/contain no-repeat;
-    filter:drop-shadow(0 12px 18px rgba(16,20,22,.28));
-  }
-  .doors-smoke{
-    position:absolute;bottom:4px;left:70px;
-    width:14px;height:14px;border-radius:50%;
-    background:rgba(20,24,27,.22);opacity:0;
-  }
-  .doors-smoke.s2{left:88px;width:10px;height:10px;}
-  .doors-smoke.s3{left:104px;width:8px;height:8px;}
-  .doors-rig.rolling .doors-smoke{animation:doors-puff 1s linear infinite;}
-  .doors-rig.rolling .doors-smoke.s2{animation-delay:.16s;}
-  .doors-rig.rolling .doors-smoke.s3{animation-delay:.32s;}
-  @keyframes doors-puff{
-    0%{opacity:.5;transform:translate(0,0) scale(.6);}
-    100%{opacity:0;transform:translate(-26px,-16px) scale(1.7);}
-  }
-  /* tył naczepy: dwa skrzydła z tego samego zdjęcia */
-  /* naczepa trzyma proporcje zdjęcia, więc napis się nie rozjeżdża */
+  .doors-clip.on{opacity:1;}
+  /* tył naczepy: dwa skrzydła, ustawiane dokładnie na ostatniej klatce klipu */
   .doors-box{
     position:absolute;top:0;bottom:0;left:50%;
     aspect-ratio:1100 / 853;transform-style:preserve-3d;
@@ -1143,7 +1123,7 @@
    <div class="about-sticky">
     <div class="wrap about-stage">
      <div class="doors" aria-hidden="true">
-       <div class="doors-rig"><span class="doors-smoke s1"></span><span class="doors-smoke s2"></span><span class="doors-smoke s3"></span><span class="doors-truck"></span></div>
+       <video class="doors-clip" muted playsinline preload="none" poster="media/klatka-start.jpg" data-src="media/manewr.mp4"></video>
        <div class="doors-box">
          <div class="door door-l"></div>
          <div class="door door-r"></div>
@@ -1583,17 +1563,20 @@
     io.observe(el);
   };
 
-  // "o firmie": naczepa podjeżdża, ustawia się tyłem, otwiera drzwi i pokazuje treść
+  // "o firmie": klip z OpenArt robi wjazd i obrót, potem drzwi otwierają się na treść
   const scene = document.querySelector('.about-scene');
   const photo = document.querySelector('.about-photo');
   const aboutText = document.querySelector('.about-text');
   const doors = document.querySelector('.doors');
   if (scene && photo && aboutText) {
     const lines = [...aboutText.children];
-    const rig = doors && doors.querySelector('.doors-rig');
+    const clip = doors && doors.querySelector('.doors-clip');
     const box = doors && doors.querySelector('.doors-box');
     const doorL = doors && doors.querySelector('.door-l');
     const doorR = doors && doors.querySelector('.door-r');
+
+    // gdzie w kadrze klipu stoi kontener na ostatniej klatce (zmierzone z pliku)
+    const FRAME = { x0: .238, x1: .761, y0: .167, y1: .886, ratio: 16 / 9 };
 
     const clamp = x => Math.min(1, Math.max(0, x));
     const easeOut = x => 1 - Math.pow(1 - x, 3);
@@ -1602,36 +1585,36 @@
 
     let active = false, aboutDone = false, aboutRunning = false, aboutStart = null;
 
+    // skrzydła siadają tam, gdzie klip zostawił naczepę
+    const placeBox = () => {
+      if (!box || !doors) return;
+      const w = doors.clientWidth, h = doors.clientHeight;
+      const vw = Math.min(w, h * FRAME.ratio);           // object-fit: contain
+      const vh = vw / FRAME.ratio;
+      const ox = (w - vw) / 2, oy = (h - vh) / 2;
+      box.style.left = (ox + vw * FRAME.x0) + 'px';
+      box.style.top = (oy + vh * FRAME.y0) + 'px';
+      box.style.width = (vw * (FRAME.x1 - FRAME.x0)) + 'px';
+      box.style.height = (vh * (FRAME.y1 - FRAME.y0)) + 'px';
+    };
+
+    // druga część: rozchylenie skrzydeł i odsłonięcie treści (p liczone od 0 do 1)
     const layout = p => {
-      // 1. bok naczepy wjeżdża z lewej i hamuje na środku
-      if (rig) {
-        const drive = easeOut(clamp(p / .30));
-        const stageW = doors.clientWidth || 800;
-        const x = -360 + drive * (stageW / 2 - 165 + 360);
-        const leaving = clamp((p - .30) / .10);
-        rig.style.transform = `translate3d(${x}px,0,0) scale(${1 - .1 * leaving})`;
-        rig.style.opacity = 1 - leaving;
-        rig.classList.toggle('rolling', p < .30);
-      }
-      // 2. naczepa obraca się do nas
-      const turn = easeOut(clamp((p - .28) / .16));
-      const fadeOut = easeOut(clamp((p - .72) / .22));
       if (box) {
-        box.style.opacity = turn * (1 - fadeOut);
-        box.style.transform = `translateX(-50%) scale(${.84 + .16 * turn}) rotateY(${-26 * (1 - turn)}deg)`;
+        const fadeIn = easeOut(clamp(p / .12));
+        const fadeOut = easeOut(clamp((p - .62) / .3));
+        box.style.opacity = fadeIn * (1 - fadeOut);
       }
-      // 3. skrzydła rozchylają się na zewnątrz
       if (doorL && doorR) {
-        const open = easeInOut(clamp((p - .45) / .30));
+        const open = easeInOut(clamp((p - .1) / .45));
         doorL.style.transform = `rotateY(${-112 * open}deg)`;
         doorR.style.transform = `rotateY(${112 * open}deg)`;
       }
-      // 4. w środku czeka zdjęcie, za nim tekst
-      const reveal = easeOut(clamp((p - .62) / .28));
+      const reveal = easeOut(clamp((p - .32) / .34));
       photo.style.opacity = reveal;
       photo.style.transform = `scale(${.92 + .08 * reveal}) translateY(${14 * (1 - reveal)}px)`;
       lines.forEach((el, i) => {
-        const lp = easeSoft(clamp((p - (.66 + i * .05)) / .28));
+        const lp = easeSoft(clamp((p - (.4 + i * .06)) / .3));
         el.style.opacity = lp;
         el.style.transform = `translateY(${16 * (1 - lp)}px)`;
       });
@@ -1641,7 +1624,7 @@
       photo.style.opacity = 1; photo.style.transform = 'none';
       lines.forEach(el => { el.style.opacity = 1; el.style.transform = 'none'; });
       if (doors) doors.classList.add('gone');
-      if (rig) rig.classList.remove('rolling');
+      if (clip) { clip.pause(); clip.classList.remove('on'); }
       aboutDone = true; aboutRunning = false;
     };
 
@@ -1651,33 +1634,53 @@
       if (doors) doors.classList.add('gone');
     };
 
-    const measure = () => {
-      active = window.matchMedia('(min-width: 761px)').matches;
-      if (!active) { clear(); return; }
-      if (aboutRunning || aboutDone) return;
-      if (doors) doors.classList.remove('gone');
-      layout(0);
-    };
-
-    const ABOUT_RUN = 4200;
+    const DOORS_RUN = 2600;
     const aboutStep = fn => document.hidden ? setTimeout(() => fn(performance.now()), 16) : requestAnimationFrame(fn);
     const aboutFrame = ts => {
       if (!aboutRunning) return;
       if (aboutStart === null) aboutStart = ts;
-      const p = clamp((ts - aboutStart) / ABOUT_RUN);
+      const p = clamp((ts - aboutStart) / DOORS_RUN);
       layout(p);
       if (p >= 1) { settle(); return; }
       aboutStep(aboutFrame);
     };
 
+    // po manewrze klip gaśnie, a jego ostatnią klatkę przejmują skrzydła
+    let handedOver = false;
+    const openDoors = () => {
+      if (handedOver || aboutDone) return;
+      handedOver = true;
+      placeBox();
+      layout(0);
+      if (clip) clip.classList.remove('on');
+      aboutRunning = true; aboutStart = null;
+      aboutStep(aboutFrame);
+    };
+
+    const measure = () => {
+      active = window.matchMedia('(min-width: 761px)').matches;
+      if (!active) { clear(); return; }
+      if (aboutRunning || aboutDone) { placeBox(); return; }
+      if (doors) doors.classList.remove('gone');
+      placeBox();
+      layout(0);
+      if (box) box.style.opacity = 0;
+    };
+
     measureTasks.push(measure);
     measure();
+
     if (active) {
       const aboutIO = new IntersectionObserver(entries => {
         entries.forEach(entry => {
-          if (!entry.isIntersecting || aboutRunning || aboutDone) return;
-          aboutRunning = true; aboutStart = null;
-          aboutStep(aboutFrame);
+          if (!entry.isIntersecting || aboutRunning || aboutDone || handedOver) return;
+          if (!clip) { openDoors(); return; }
+          clip.src = clip.dataset.src;
+          clip.classList.add('on');
+          clip.play().catch(() => openDoors());   // blokada autoodtwarzania — idziemy dalej bez klipu
+          clip.addEventListener('ended', openDoors, { once: true });
+          // gdyby zdarzenie nie doszło, i tak przejmujemy po długości klipu
+          setTimeout(openDoors, 6200);
         });
       }, { threshold: .45 });
       aboutIO.observe(scene);
