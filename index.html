@@ -244,7 +244,7 @@
   }
   .door{
     position:absolute;top:0;bottom:0;width:50%;
-    background-image:url("media/naczepa-drzwi.jpg");
+    background-image:url("media/naczepa-biala.jpg");
     background-size:200% 100%;
     background-repeat:no-repeat;
     box-shadow:0 26px 60px rgba(16,20,22,.34);
@@ -1128,7 +1128,7 @@
    <div class="about-sticky">
     <div class="wrap about-stage">
      <div class="doors" aria-hidden="true">
-       <video class="doors-src" muted playsinline preload="none" data-src="media/manewr-v3.mp4"></video>
+       <video class="doors-src" muted playsinline preload="none" data-src="media/manewr-v4.mp4"></video>
        <canvas class="doors-clip"></canvas>
        <div class="doors-box">
          <div class="door door-l"></div>
@@ -1583,7 +1583,7 @@
     const doorR = doors && doors.querySelector('.door-r');
 
     // gdzie w kadrze klipu stoi kontener na ostatniej klatce (zmierzone z pliku)
-    const FRAME = { x0: .238, x1: .761, y0: .167, y1: .886, ratio: 16 / 9 };
+    const FRAME = { x0: .2365, x1: .7615, y0: .1648, y1: .7425, ratio: 16 / 9 };
 
     const clamp = x => Math.min(1, Math.max(0, x));
     const easeOut = x => 1 - Math.pow(1 - x, 3);
