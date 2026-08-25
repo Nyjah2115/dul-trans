@@ -1663,7 +1663,7 @@
     }
   }
 
-  // characters fly in from the sides as the block scrolls into view
+  // 1992: cyfry zlatują się z boków — własna oś czasu, odpalana wejściem w kadr
   const spreadEl = document.querySelector('.stat-num');
   if (spreadEl) {
     const text = spreadEl.textContent.trim();
@@ -1677,24 +1677,46 @@
     });
     const centre = (chars.length - 1) / 2;
 
-    let spreadDone = false;
-    const spread = () => {
-      if (spreadDone) return;              // plays once, then stays assembled
-      const vh = window.innerHeight || document.documentElement.clientHeight || 1;
-      const top = spreadEl.getBoundingClientRect().top;
-      // 0 while it is still below the fold, 1 once it has risen to mid-screen
-      const p = Math.min(1, Math.max(0, (vh - top) / (vh * .6)));
-      const rest = 1 - p;
+    const SPREAD_RUN = 1500;
+    const easeSpread = x => 1 - Math.pow(1 - x, 2);   // ruch widoczny przez cały przebieg
+    const clampS = x => Math.min(1, Math.max(0, x));
+    let spreadStart = null, spreadRunning = false, spreadDone = false;
+
+    const spreadLayout = p => {
       chars.forEach((span, i) => {
         const d = i - centre;
+        // każda cyfra rusza chwilę po poprzedniej, licząc od środka na zewnątrz
+        const local = easeSpread(clampS((p - Math.abs(d) * .07) / .79));
+        const rest = 1 - local;
         span.style.transform =
-          `translateX(${d * 50 * rest}px) rotateX(${d * 50 * rest}deg)`;
+          `translateX(${d * 60 * rest}px) rotateX(${d * 55 * rest}deg)`;
+        span.style.opacity = .25 + .75 * local;
       });
-      if (p >= 1) { chars.forEach(s => (s.style.transform = 'none')); spreadDone = true; }
+    };
+    spreadLayout(0);
+
+    const spreadStep = fn => document.hidden ? setTimeout(() => fn(performance.now()), 16) : requestAnimationFrame(fn);
+    const spreadFrame = ts => {
+      if (!spreadRunning) return;
+      if (spreadStart === null) spreadStart = ts;
+      const p = clampS((ts - spreadStart) / SPREAD_RUN);
+      spreadLayout(p);
+      if (p >= 1) {
+        chars.forEach(s => { s.style.transform = 'none'; s.style.opacity = 1; });
+        spreadRunning = false; spreadDone = true;
+        return;
+      }
+      spreadStep(spreadFrame);
     };
 
-    frameTasks.push(spread);
-    spread();
+    const spreadIO = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting || spreadRunning || spreadDone) return;
+        spreadRunning = true; spreadStart = null;
+        spreadStep(spreadFrame);
+      });
+    }, { threshold: .6 });
+    spreadIO.observe(spreadEl.closest('.trust-bar') || spreadEl);
   }
 
   // clicking a service tile pins it open instead of navigating away
