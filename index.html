@@ -217,6 +217,71 @@
   }
   .nav-cta:hover{background:var(--ink-900);color:var(--paper);}
 
+  /* ===== "O FIRMIE": naczepa podjeżdża i otwiera się na treść ===== */
+  .about-stage{position:relative;}
+  .about-stage .about-grid{width:100%;}
+  .doors{
+    position:absolute;inset:-18px -10px;z-index:3;pointer-events:none;
+    perspective:1600px;perspective-origin:50% 45%;
+  }
+  .doors.gone{display:none;}
+  /* bok naczepy w drodze na miejsce — ta sama sylwetka co na pasku pod hero */
+  .doors-rig{
+    position:absolute;left:0;bottom:8%;width:220px;height:82px;
+    will-change:transform,opacity;
+  }
+  .doors-truck{
+    position:absolute;inset:0;
+    -webkit-mask-image:url("media/1513a865.png");mask-image:url("media/1513a865.png");
+    -webkit-mask-size:contain;mask-size:contain;
+    -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
+    -webkit-mask-position:center;mask-position:center;
+    background:linear-gradient(100deg,#e0303b 0%,#c1121f 45%,#7a0a12 100%);
+  }
+  .doors-smoke{
+    position:absolute;bottom:6px;left:14px;
+    width:14px;height:14px;border-radius:50%;
+    background:rgba(20,24,27,.22);opacity:0;
+  }
+  .doors-smoke.s2{left:30px;width:10px;height:10px;}
+  .doors-smoke.s3{left:46px;width:8px;height:8px;}
+  .doors-rig.rolling .doors-smoke{animation:doors-puff 1s linear infinite;}
+  .doors-rig.rolling .doors-smoke.s2{animation-delay:.16s;}
+  .doors-rig.rolling .doors-smoke.s3{animation-delay:.32s;}
+  @keyframes doors-puff{
+    0%{opacity:.5;transform:translate(0,0) scale(.6);}
+    100%{opacity:0;transform:translate(-26px,-16px) scale(1.7);}
+  }
+  /* tył naczepy: dwa skrzydła z tego samego zdjęcia */
+  /* zasłona w kolorze strony — bez niej treść przebijałaby obok naczepy */
+  .doors-veil{
+    position:absolute;inset:0;background:#d2d4d3;opacity:0;
+    will-change:opacity;
+  }
+  /* naczepa trzyma proporcje zdjęcia, więc napis się nie rozjeżdża */
+  .doors-box{
+    position:absolute;top:0;bottom:0;left:50%;
+    aspect-ratio:4 / 3;transform-style:preserve-3d;
+    opacity:0;will-change:transform,opacity;
+  }
+  .door{
+    position:absolute;top:0;bottom:0;width:50%;
+    background-image:url("media/naczepa-tyl.jpg");
+    background-size:200% 100%;
+    background-repeat:no-repeat;
+    box-shadow:0 22px 50px rgba(16,20,22,.38);
+    will-change:transform;backface-visibility:hidden;
+  }
+  .door-l{left:0;background-position:left center;transform-origin:left center;}
+  .door-r{right:0;background-position:right center;transform-origin:right center;}
+  /* treść czeka w środku, aż skrzydła się rozejdą */
+  .about-stage .about-photo,
+  .about-stage .about-text > *{will-change:transform,opacity;}
+
+  @media (max-width:760px){
+    .doors{display:none;}
+  }
+
   /* ===== "CO ROBIMY" SCENE: heading first, then the tiles land ===== */
   #uslugi{padding:0;}
   .uslugi-scene{position:relative;}
@@ -1083,7 +1148,16 @@
 <section class="about" id="onas">
   <div class="about-scene">
    <div class="about-sticky">
-    <div class="wrap about-grid">
+    <div class="wrap about-stage">
+     <div class="doors" aria-hidden="true">
+       <div class="doors-rig"><span class="doors-smoke s1"></span><span class="doors-smoke s2"></span><span class="doors-smoke s3"></span><span class="doors-truck"></span></div>
+       <div class="doors-veil"></div>
+       <div class="doors-box">
+         <div class="door door-l"></div>
+         <div class="door door-r"></div>
+       </div>
+     </div>
+     <div class="about-grid">
     <figure class="about-photo">
       <img src="media/b9fa4442.jpg" alt="Zespół DUL-TRANS przy ciężarówkach Scania w barwach firmy" loading="lazy" decoding="async">
     </figure>
@@ -1094,6 +1168,7 @@
       <p>Stawiamy na uczciwe warunki, sprawną komunikację i dobrze utrzymaną flotę — dlatego klienci wracają do nas od pokoleń.</p>
       <div class="signature-line">Sławomir Dul <b>— właściciel DUL-TRANS</b></div>
     </div>
+     </div>
     </div>
    </div>
   </div>
@@ -1516,68 +1591,107 @@
     io.observe(el);
   };
 
-  // "o firmie": photo starts centred, slides to its column while the text cascades in
+  // "o firmie": naczepa podjeżdża, ustawia się tyłem, otwiera drzwi i pokazuje treść
   const scene = document.querySelector('.about-scene');
   const photo = document.querySelector('.about-photo');
   const aboutText = document.querySelector('.about-text');
+  const doors = document.querySelector('.doors');
   if (scene && photo && aboutText) {
     const lines = [...aboutText.children];
+    const rig = doors && doors.querySelector('.doors-rig');
+    const box = doors && doors.querySelector('.doors-box');
+    const veil = doors && doors.querySelector('.doors-veil');
+    const doorL = doors && doors.querySelector('.door-l');
+    const doorR = doors && doors.querySelector('.door-r');
+
     const clamp = x => Math.min(1, Math.max(0, x));
-    const easeOut = x => 1 - Math.pow(1 - x, 3);          // leaves quickly, settles softly
-    const easeSoft = x => x * x * (3 - 2 * x);            // gentle in and out
-    let shift = 0, active = false, aboutDone = false, aboutRunning = false, aboutStart = null;
+    const easeOut = x => 1 - Math.pow(1 - x, 3);
+    const easeInOut = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+    const easeSoft = x => x * x * (3 - 2 * x);
+
+    let active = false, aboutDone = false, aboutRunning = false, aboutStart = null;
 
     const layout = p => {
-      const move = easeOut(p);
-      const rest = 1 - move;
-      // it swings out of the centre: a touch of rotation and scale that unwind as it lands
-      photo.style.transform =
-        `translateX(${shift * rest}px) translateY(${-10 * Math.sin(Math.PI * move)}px)` +
-        ` rotate(${-1.6 * rest}deg) scale(${1 + .06 * rest})`;
-
+      // 1. bok naczepy wjeżdża z lewej i hamuje na środku
+      if (rig) {
+        const drive = easeOut(clamp(p / .30));
+        const stageW = doors.clientWidth || 800;
+        const x = -240 + drive * (stageW / 2 - 110 + 240);
+        const leaving = clamp((p - .30) / .10);
+        rig.style.transform = `translate3d(${x}px,0,0) scale(${1 - .12 * leaving})`;
+        rig.style.opacity = 1 - leaving;
+        rig.classList.toggle('rolling', p < .30);
+      }
+      // 2. naczepa obraca się do nas, a zasłona kryje to, co pod spodem
+      const turn = easeOut(clamp((p - .28) / .16));
+      const fadeOut = easeOut(clamp((p - .72) / .22));
+      if (veil) veil.style.opacity = turn * (1 - fadeOut);
+      if (box) {
+        box.style.opacity = turn * (1 - fadeOut);
+        box.style.transform = `translateX(-50%) scale(${.84 + .16 * turn}) rotateY(${-26 * (1 - turn)}deg)`;
+      }
+      // 3. skrzydła rozchylają się na zewnątrz
+      if (doorL && doorR) {
+        const open = easeInOut(clamp((p - .45) / .30));
+        doorL.style.transform = `rotateY(${-112 * open}deg)`;
+        doorR.style.transform = `rotateY(${112 * open}deg)`;
+      }
+      // 4. w środku czeka zdjęcie, za nim tekst
+      const reveal = easeOut(clamp((p - .60) / .28));
+      photo.style.opacity = reveal;
+      photo.style.transform = `scale(${.92 + .08 * reveal}) translateY(${14 * (1 - reveal)}px)`;
       lines.forEach((el, i) => {
-        const lp = easeSoft(clamp((p - (.30 + i * .08)) / .38));
+        const lp = easeSoft(clamp((p - (.66 + i * .05)) / .28));
         el.style.opacity = lp;
-        el.style.transform = `translateY(${18 * (1 - lp)}px)`;
+        el.style.transform = `translateY(${16 * (1 - lp)}px)`;
       });
     };
-    const aboutSettle = () => {
-      photo.style.transform = 'none';
+
+    const settle = () => {
+      photo.style.opacity = 1; photo.style.transform = 'none';
       lines.forEach(el => { el.style.opacity = 1; el.style.transform = 'none'; });
+      if (veil) veil.style.opacity = 0;
+      if (doors) doors.classList.add('gone');
+      if (rig) rig.classList.remove('rolling');
       aboutDone = true; aboutRunning = false;
     };
 
-    // measured with the transform cleared, so the shift never feeds back into itself
+    const clear = () => {
+      photo.style.opacity = ''; photo.style.transform = '';
+      lines.forEach(el => { el.style.opacity = ''; el.style.transform = ''; });
+      if (doors) doors.classList.add('gone');
+    };
+
     const measure = () => {
       active = window.matchMedia('(min-width: 761px)').matches;
-      if (!active) {
-        photo.style.transform = '';
-        lines.forEach(el => { el.style.transform = ''; el.style.opacity = ''; });
-        return;
-      }
+      if (!active) { clear(); return; }
       if (aboutRunning || aboutDone) return;
-      photo.style.transform = 'none';
-      const grid = photo.parentElement;
-      const gridRect = grid.getBoundingClientRect();
-      const photoRect = photo.getBoundingClientRect();
-      shift = (gridRect.left + gridRect.width / 2) - (photoRect.left + photoRect.width / 2);
+      if (doors) doors.classList.remove('gone');
       layout(0);
     };
 
-    const ABOUT_RUN = 1900;
+    const ABOUT_RUN = 4200;
+    const aboutStep = fn => document.hidden ? setTimeout(() => fn(performance.now()), 16) : requestAnimationFrame(fn);
     const aboutFrame = ts => {
       if (!aboutRunning) return;
       if (aboutStart === null) aboutStart = ts;
       const p = clamp((ts - aboutStart) / ABOUT_RUN);
       layout(p);
-      if (p >= 1) { aboutSettle(); return; }
-      timeStep(aboutFrame);
+      if (p >= 1) { settle(); return; }
+      aboutStep(aboutFrame);
     };
 
     measureTasks.push(measure);
     measure();
     if (active) {
-      runOnce(scene, () => { aboutRunning = true; aboutStart = null; timeStep(aboutFrame); }, .28);
+      const aboutIO = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (!entry.isIntersecting || aboutRunning || aboutDone) return;
+          aboutRunning = true; aboutStart = null;
+          aboutStep(aboutFrame);
+        });
+      }, { threshold: .45 });
+      aboutIO.observe(scene);
     }
   }
 
