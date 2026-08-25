@@ -227,8 +227,13 @@
   .doors.gone{display:none;}
   /* manewr: wjazd i obrót nagrane w OpenArt, tło klipu w tonie strony */
   .doors-clip{
-    position:absolute;inset:0;width:100%;height:100%;
-    object-fit:contain;opacity:0;transition:opacity .35s ease;
+    position:absolute;top:0;left:50%;height:100%;width:auto;
+    aspect-ratio:16 / 9;transform:translateX(-50%);
+    opacity:0;transition:opacity .35s ease;
+    /* krawędzie rozmywają się w tło, więc klip nie ma widocznego prostokąta */
+    -webkit-mask-image:radial-gradient(ellipse 56% 60% at 50% 50%, #000 74%, transparent 100%);
+    mask-image:radial-gradient(ellipse 56% 60% at 50% 50%, #000 74%, transparent 100%);
+    filter:brightness(.99);
   }
   .doors-clip.on{opacity:1;}
   /* tył naczepy: dwa skrzydła, ustawiane dokładnie na ostatniej klatce klipu */
